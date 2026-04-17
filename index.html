@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mis Tareas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #F5F2EC;
+    --surface:   #FDFAF5;
+    --border:    #E2DDD4;
+    --text:      #1C1917;
+    --muted:     #78716C;
+    --accent:    #C4522A;
+    --accent-lt: #F5E6DF;
+
+    --todo-bg:   #EDF2FB;
+    --todo-bd:   #A8BFEE;
+    --todo-hd:   #2C5FBF;
+
+    --wip-bg:    #FEF3E2;
+    --wip-bd:    #F0BC72;
+    --wip-hd:    #9A5A06;
+
+    --done-bg:   #E8F5EE;
+    --done-bd:   #82C99E;
+    --done-hd:   #1F6B40;
+
+    --radius:    10px;
+    --shadow:    0 2px 8px rgba(0,0,0,.08);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ────────────────────────────────── */
+  header {
+    background: var(--surface);
+    border-bottom: 1.5px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    letter-spacing: -.5px;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); font-style: italic; }
+
+  /* ── FORMULARIO ────────────────────────────── */
+  .add-form {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    max-width: 560px;
+  }
+
+  .add-form input {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .add-form input:focus { border-color: var(--accent); }
+  .add-form input::placeholder { color: var(--muted); }
+
+  .add-form select {
+    padding: 9px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+  }
+
+  .btn-add {
+    padding: 9px 18px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn-add:hover { opacity: .88; }
+  .btn-add:active { transform: scale(.97); }
+
+  /* ── CONTADOR ──────────────────────────────── */
+  .summary {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    padding: 8px 32px 0;
+  }
+
+  /* ── TABLERO ───────────────────────────────── */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px 32px 40px;
+  }
+
+  @media (max-width: 720px) {
+    .board { grid-template-columns: 1fr; }
+    .add-form { max-width: 100%; }
+    header { padding: 16px 20px; }
+    .board { padding: 16px 20px 40px; }
+    .summary { padding: 8px 20px 0; }
+  }
+
+  /* ── COLUMNA ───────────────────────────────── */
+  .column {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+    transition: box-shadow .2s;
+  }
+  .column.drag-over {
+    box-shadow: 0 0 0 2.5px var(--accent), var(--shadow);
+  }
+
+  .col-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1.5px solid var(--border);
+  }
+
+  .col-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  [data-col="todo"]     .col-dot { background: var(--todo-hd); }
+  [data-col="progress"] .col-dot { background: var(--wip-hd); }
+  [data-col="done"]     .col-dot { background: var(--done-hd); }
+
+  .col-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 17px;
+    letter-spacing: -.3px;
+  }
+  [data-col="todo"]     .col-title { color: var(--todo-hd); }
+  [data-col="progress"] .col-title { color: var(--wip-hd); }
+  [data-col="done"]     .col-title { color: var(--done-hd); }
+
+  .col-count {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  [data-col="todo"]     .col-count { background: var(--todo-bg);  color: var(--todo-hd); }
+  [data-col="progress"] .col-count { background: var(--wip-bg);   color: var(--wip-hd); }
+  [data-col="done"]     .col-count { background: var(--done-bg);  color: var(--done-hd); }
+
+  /* ── LISTA DE TAREAS ───────────────────────── */
+  .task-list {
+    padding: 12px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .empty-hint {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px 0;
+    font-style: italic;
+  }
+
+  /* ── TARJETA ───────────────────────────────── */
+  .task-card {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: grab;
+    transition: box-shadow .15s, transform .15s, opacity .15s;
+    animation: cardIn .18s ease both;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .task-card:hover {
+    box-shadow: var(--shadow);
+    border-color: #C9C3BA;
+  }
+  .task-card.dragging {
+    opacity: .45;
+    transform: scale(.97);
+    cursor: grabbing;
+  }
+
+  .task-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .task-card.is-done .task-text {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+
+  /* controles de la tarjeta */
+  .card-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 5px;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--muted);
+    transition: background .12s, color .12s;
+  }
+  .btn-icon:hover { background: var(--border); color: var(--text); }
+  .btn-del:hover  { background: #FDECEA; color: #B91C1C; }
+
+  /* ── MENÚ MOVER ────────────────────────────── */
+  .move-menu {
+    position: relative;
+  }
+  .move-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 24px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 20px rgba(0,0,0,.12);
+    z-index: 100;
+    min-width: 150px;
+    overflow: hidden;
+  }
+  .move-dropdown.open { display: block; }
+  .move-opt {
+    display: block;
+    width: 100%;
+    padding: 9px 14px;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text);
+    transition: background .1s;
+  }
+  .move-opt:hover { background: var(--bg); }
+  .move-opt.current { color: var(--muted); pointer-events: none; }
+
+  /* ── TOAST ─────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--text);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Mis<span>Tareas</span></div>
+  <form class="add-form" id="addForm">
+    <input type="text" id="taskInput" placeholder="Escribe una nueva tarea…" maxlength="200" autocomplete="off">
+    <select id="colSelect">
+      <option value="todo">Por hacer</option>
+      <option value="progress">En progreso</option>
+      <option value="done">Hecho</option>
+    </select>
+    <button class="btn-add" type="submit">+ Agregar</button>
+  </form>
+</header>
+
+<p class="summary" id="summary"></p>
+
+<div class="board">
+  <div class="column" data-col="todo"
+       ondragover="onDragOver(event)" ondrop="onDrop(event,'todo')" ondragleave="onDragLeave(event)">
+    <div class="col-header">
+      <span class="col-dot"></span>
+      <span class="col-title">Por hacer</span>
+      <span class="col-count" id="cnt-todo">0</span>
+    </div>
+    <div class="task-list" id="list-todo"></div>
+  </div>
+
+  <div class="column" data-col="progress"
+       ondragover="onDragOver(event)" ondrop="onDrop(event,'progress')" ondragleave="onDragLeave(event)">
+    <div class="col-header">
+      <span class="col-dot"></span>
+      <span class="col-title">En progreso</span>
+      <span class="col-count" id="cnt-progress">0</span>
+    </div>
+    <div class="task-list" id="list-progress"></div>
+  </div>
+
+  <div class="column" data-col="done"
+       ondragover="onDragOver(event)" ondrop="onDrop(event,'done')" ondragleave="onDragLeave(event)">
+    <div class="col-header">
+      <span class="col-dot"></span>
+      <span class="col-title">Hecho</span>
+      <span class="col-count" id="cnt-done">0</span>
+    </div>
+    <div class="task-list" id="list-done"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ── ESTADO ──────────────────────────────────── */
+const KEY = 'mistareas_v1';
+let tasks = [];
+let dragId = null;
+
+const COL_LABELS = { todo: 'Por hacer', progress: 'En progreso', done: 'Hecho' };
+
+function load() {
+  try { tasks = JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch { tasks = []; }
+}
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(tasks));
+}
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+/* ── RENDER ──────────────────────────────────── */
+function render() {
+  ['todo','progress','done'].forEach(col => {
+    const list = document.getElementById('list-' + col);
+    const colTasks = tasks.filter(t => t.col === col);
+    document.getElementById('cnt-' + col).textContent = colTasks.length;
+
+    list.innerHTML = '';
+    if (colTasks.length === 0) {
+      list.innerHTML = '<p class="empty-hint">Sin tareas aquí</p>';
+      return;
+    }
+    colTasks.forEach(t => {
+      list.appendChild(makeCard(t));
+    });
+  });
+  updateSummary();
+}
+
+function makeCard(t) {
+  const card = document.createElement('div');
+  card.className = 'task-card' + (t.col === 'done' ? ' is-done' : '');
+  card.draggable = true;
+  card.dataset.id = t.id;
+
+  card.addEventListener('dragstart', e => {
+    dragId = t.id;
+    setTimeout(() => card.classList.add('dragging'), 0);
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    dragId = null;
+    document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  });
+
+  const text = document.createElement('span');
+  text.className = 'task-text';
+  text.textContent = t.text;
+
+  const controls = document.createElement('div');
+  controls.className = 'card-controls';
+
+  /* botón mover */
+  const moveWrap = document.createElement('div');
+  moveWrap.className = 'move-menu';
+
+  const btnMove = document.createElement('button');
+  btnMove.className = 'btn-icon';
+  btnMove.title = 'Mover a…';
+  btnMove.textContent = '⇄';
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'move-dropdown';
+  ['todo','progress','done'].forEach(col => {
+    const opt = document.createElement('button');
+    opt.className = 'move-opt' + (col === t.col ? ' current' : '');
+    opt.textContent = COL_LABELS[col];
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      moveTask(t.id, col);
+      dropdown.classList.remove('open');
+    });
+    dropdown.appendChild(opt);
+  });
+
+  btnMove.addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('.move-dropdown').forEach(d => {
+      if (d !== dropdown) d.classList.remove('open');
+    });
+    dropdown.classList.toggle('open');
+  });
+
+  moveWrap.appendChild(btnMove);
+  moveWrap.appendChild(dropdown);
+
+  /* botón eliminar */
+  const btnDel = document.createElement('button');
+  btnDel.className = 'btn-icon btn-del';
+  btnDel.title = 'Eliminar';
+  btnDel.textContent = '✕';
+  btnDel.addEventListener('click', () => deleteTask(t.id));
+
+  controls.appendChild(moveWrap);
+  controls.appendChild(btnDel);
+
+  card.appendChild(text);
+  card.appendChild(controls);
+  return card;
+}
+
+/* ── ACCIONES ────────────────────────────────── */
+function addTask(text, col) {
+  if (!text.trim()) return;
+  tasks.push({ id: newId(), text: text.trim(), col });
+  save(); render();
+  toast('Tarea agregada ✓');
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  save(); render();
+  toast('Tarea eliminada');
+}
+
+function moveTask(id, col) {
+  const t = tasks.find(t => t.id === id);
+  if (!t || t.col === col) return;
+  t.col = col;
+  save(); render();
+  toast('Movida a «' + COL_LABELS[col] + '»');
+}
+
+function updateSummary() {
+  const total = tasks.length;
+  const done  = tasks.filter(t => t.col === 'done').length;
+  document.getElementById('summary').textContent =
+    total === 0
+      ? 'No hay tareas todavía.'
+      : total + ' tarea' + (total !== 1 ? 's' : '') + ' · ' + done + ' completada' + (done !== 1 ? 's' : '');
+}
+
+/* ── DRAG & DROP ─────────────────────────────── */
+function onDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function onDrop(e, col) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (dragId) moveTask(dragId, col);
+}
+
+/* ── FORMULARIO ──────────────────────────────── */
+document.getElementById('addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const input = document.getElementById('taskInput');
+  const col   = document.getElementById('colSelect').value;
+  addTask(input.value, col);
+  input.value = '';
+  input.focus();
+});
+
+/* ── CERRAR DROPDOWN AL HACER CLIC AFUERA ─────── */
+document.addEventListener('click', () => {
+  document.querySelectorAll('.move-dropdown').forEach(d => d.classList.remove('open'));
+});
+
+/* ── TOAST ───────────────────────────────────── */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ── INIT ────────────────────────────────────── */
+load();
+render();
+</script>
+</body>
+</html>
